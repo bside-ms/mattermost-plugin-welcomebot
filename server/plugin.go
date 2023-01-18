@@ -1,17 +1,17 @@
 package main
 
 import (
+	"github.com/mattermost/mattermost-server/v6/model"
 	"sync/atomic"
 
 	pluginapi "github.com/mattermost/mattermost-plugin-api"
-	"github.com/mattermost/mattermost-server/v6/model"
 	"github.com/mattermost/mattermost-server/v6/plugin"
 	"github.com/pkg/errors"
 )
 
 const (
-	botUsername    = "welcomebot"
-	botDisplayName = "Welcomebot"
+	botUsername    = "bside-bot"
+	botDisplayName = "B-Side"
 	botDescription = "A bot account created by the Welcomebot plugin."
 
 	welcomebotChannelWelcomeKey = "chanmsg_"
@@ -33,16 +33,21 @@ type Plugin struct {
 func (p *Plugin) OnActivate() error {
 	p.client = pluginapi.NewClient(p.API, p.Driver)
 
-	bot := &model.Bot{
-		Username:    botUsername,
-		DisplayName: botDisplayName,
-		Description: botDescription,
+	existingBot, _ := p.client.Bot.Get(botUsername, false)
+	if existingBot == nil {
+		bot := &model.Bot{
+			Username:    botUsername,
+			DisplayName: botDisplayName,
+			Description: botDescription,
+		}
+		botUserID, appErr := p.client.Bot.EnsureBot(bot)
+		if appErr != nil {
+			return errors.Wrap(appErr, "failed to ensure bot user")
+		}
+		p.botUserID = botUserID
+	} else {
+		p.botUserID = existingBot.UserId
 	}
-	botUserID, appErr := p.client.Bot.EnsureBot(bot)
-	if appErr != nil {
-		return errors.Wrap(appErr, "failed to ensure bot user")
-	}
-	p.botUserID = botUserID
 
 	err := p.API.RegisterCommand(getCommand())
 	if err != nil {
